@@ -1,2 +1,6 @@
-# open-data-ncl-joins
-Ressources Open Data pour joindre des jeux de données open datas
+# ❔ A propos
+
+Ressources Open Data pour : 
+
+- Joindre des jeux de données open datas entre eux
+- Enrichir avec des données tierces permettant de nouvelles intégrations/applications
