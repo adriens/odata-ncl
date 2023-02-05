@@ -13,3 +13,6 @@
 - https://www.floridamuseum.ufl.edu/shark-attacks/maps/oceania/
 - [OpenDataSoft - Global Shark Attack - World ](https://public.opendatasoft.com/explore/dataset/global-shark-attack/table/?disjunctive.country&disjunctive.area&disjunctive.activity&sort=date&q=NEW+CALEDONIA)
 - https://hal.ird.fr/ird-03570723v1/document  
+
+- [List of threatened sharks](https://en.wikipedia.org/wiki/List_of_threatened_sharks)
+- [List of sharks](https://en.wikipedia.org/wiki/List_of_sharks)
