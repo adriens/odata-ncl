@@ -1,4 +1,4 @@
-annee,date,heure_deb_heure_fin,code_cog,nb_tues,nb_blesses,immpliques
+annee,date,heure_deb,heure_fin,code_cog,nb_tues,nb_blesses,immpliques
 2014,2014/06/21,18:00,21:00,Houaïlou,2,1,1 véhicule léger 
 2014,2014/07/03,15:00,18:00,Canala,1,0,1 véhicule léger
 2014,2014/07/20,09:00,12:00,Ponérihouen,1,2,1 véhicule léger
