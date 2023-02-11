@@ -1,8 +1,7 @@
 id,description,scientific_name
 TIGER_SHARK,Requin tigre,Galeocerdo cuvier
-WHITE_SHARK,Requin blanc,Carcharodon carcharias
 BULL_SHARK,Requin bouledogue,Carcharhinus leucas
-GREAT_WHITE_SHARK,Grand requin blanc,
+GREAT_WHITE_SHARK,Grand requin blanc,Carcharodon carcharias
 GREY_REEF_SHARK,Requin gris de récif,Carcharhinus amblyrhynchos
 LEMON_SHARK,Requin citron,Negaprion brevirostris
 BLACK_TIP_REEF_SHARK,Requin à pointes noires,Carcharhinus melanopterus
