@@ -1,11 +1,11 @@
-id,description
-TIGER_SHARK,Requin tigre
-WHITE_SHARK,Requin blanc
-BULL_SHARK,Requin bouledogue
-WHITE_SHARK_GREAT,Grand requin blanc
-,Requin gris de récif
-LEMON_SHARK,Requin citron
-,Requin pointe blanche de récif
-,Requin gris à haute nageoire dorsale
-,Grand requin marteau
-,Requin nourrice
+id,description,scientific_name
+TIGER_SHARK,Requin tigre,Galeocerdo cuvier
+WHITE_SHARK,Requin blanc,Carcharodon carcharias
+BULL_SHARK,Requin bouledogue,Carcharhinus leucas
+GREAT_WHITE_SHARK,Grand requin blanc,
+GREY_REEF_SHARK,Requin gris de récif,Carcharhinus amblyrhynchos
+LEMON_SHARK,Requin citron,Negaprion brevirostris
+BLACK_TIP_REEF_SHARK,Requin à pointes noires,Carcharhinus melanopterus
+NURSE_SHARK,Requin nourrice,Ginglymostoma cirratum
+GREAT_HAMMER_HEAD,Requin Marteau,Sphyrna mokarran
+SHORT_FIN_MAKO_SHARK,Requin mako,Isurus oxyrinchus
