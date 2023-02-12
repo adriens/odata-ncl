@@ -17,3 +17,7 @@
 - [List of threatened sharks](https://en.wikipedia.org/wiki/List_of_threatened_sharks)
 - [List of sharks](https://en.wikipedia.org/wiki/List_of_sharks)
 - ["La Calédonie est un hot spot mondial du risque requin"](https://la1ere.francetvinfo.fr/nouvellecaledonie/la-caledonie-est-un-hot-spot-mondial-du-risque-requin-selon-le-chercheur-francois-taglioni-1364026.html)
+
+
+
+[Shark species on Kaggle](https://www.kaggle.com/datasets/larusso94/shark-species)
