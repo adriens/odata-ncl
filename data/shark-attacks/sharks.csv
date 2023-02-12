@@ -1,13 +1,13 @@
-id,description,scientific_name
-TIGER_SHARK,Requin tigre,Galeocerdo cuvier
-BULL_SHARK,Requin bouledogue,Carcharhinus leucas
-GREAT_WHITE_SHARK,Grand requin blanc,Carcharodon carcharias
-GREY_REEF_SHARK,Requin gris de récif,Carcharhinus amblyrhynchos
-LEMON_SHARK,Requin citron,Negaprion brevirostris
-BLACK_TIP_REEF_SHARK,Requin à pointes noires,Carcharhinus melanopterus
-NURSE_SHARK,Requin nourrice,Ginglymostoma cirratum
-GREAT_HAMMER_HEAD,Requin Marteau,Sphyrna mokarran
-SHORT_FIN_MAKO_SHARK,Requin mako,Isurus oxyrinchus
-SAND_TIGER_SHARK,Requin-taureau,Carcharias taurus
-GIANT_GUITAR_FISH,Grande raie-guitare,Rhynchobatus djiddensis
-WHALE_SHARK,Requin-baleine,Rhincodon typus
+id,description,scientific_name,conservation_status
+TIGER_SHARK,Requin tigre,Galeocerdo cuvier,NEAR_THREATENED
+BULL_SHARK,Requin bouledogue,Carcharhinus leucas,NEAR_THREATENED
+GREAT_WHITE_SHARK,Grand requin blanc,Carcharodon carcharias,VULNERABLE,
+GREY_REEF_SHARK,Requin gris de récif,Carcharhinus amblyrhynchos,NEAR_THREATENED
+LEMON_SHARK,Requin citron,Negaprion brevirostris,NEAR_THREATENED
+BLACK_TIP_REEF_SHARK,Requin à pointes noires,Carcharhinus melanopterus,NEAR_THREATENED
+NURSE_SHARK,Requin nourrice,Ginglymostoma cirratum,VULNERABLE
+GREAT_HAMMER_HEAD,Requin Marteau,Sphyrna mokarran,ENDANGERED
+SHORT_FIN_MAKO_SHARK,Requin mako,Isurus oxyrinchus,ENDANGERED
+SAND_TIGER_SHARK,Requin-taureau,Carcharias taurus,CRITICALLY_ENDANGERED
+GIANT_GUITAR_FISH,Grande raie-guitare,Rhynchobatus djiddensis,CRITICALLY_ENDANGERED
+WHALE_SHARK,Requin-baleine,Rhincodon typus,ENDANGERED
