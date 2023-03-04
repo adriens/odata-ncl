@@ -1,3 +1,4 @@
+rm shark-attacks-ncl.sqlite
 sqlite3 shark-attacks-ncl.sqlite
 
 DROP TABLE IF EXISTS CONSERVATION_STATUS;
@@ -79,12 +80,16 @@ create table SHARK_ATTACKS_NCL (
     time VARCHAR(5),
     day_part VARCHAR(3),
     species VARCHAR(11),
+    species_1 VARCHAR(11),
+    species_2 VARCHAR(11),
     skark_size_centimeters INTEGER,
     source VARCHAR(100),
     www_sharkattack_file VARCHAR(100),
     www_nc1 VARCHAR(100),
     sharkattack_id VARCHAR(12),
-    FOREIGN KEY (moon_phase) REFERENCES LUNAR_PHASIS(id)
+    FOREIGN KEY (moon_phase) REFERENCES LUNAR_PHASIS(id),
+    FOREIGN KEY (species_1) REFERENCES SHARKS(ID),
+    FOREIGN KEY (species_2) REFERENCES SHARKS(ID)
 );
 
 .mode csv
@@ -96,3 +101,17 @@ select
 from shark_attacks_ncl
 group by year
 order by year desc limit 10;
+
+docker run \
+--mount type=bind,source="$(pwd)",target=/home/schcrwlr \
+--rm -it \
+schemacrawler/schemacrawler \
+/opt/schemacrawler/bin/schemacrawler.sh \
+--server=sqlite \
+--database=shark-attacks-ncl.sqlite \
+--info-level=standard \
+--command=schema \
+--output-file=shark-attacks-ncl.png
+
+file shark-attacks-ncl.png
+xdg-open shark-attacks-ncl.png
