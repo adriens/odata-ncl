@@ -64,7 +64,7 @@ create table SHARK_ATTACKS_NCL (
     season VARCHAR(6),
     type VARCHAR(10),
     country VARCHAR(13),
-    comune_nom VARCHAR(11),
+    commune_nom VARCHAR(11),
     coast VARCHAR(4),
     location VARCHAR(30),
     details_plage VARCHAR(50),
@@ -95,12 +95,6 @@ create table SHARK_ATTACKS_NCL (
 .mode csv
 .import --skip 1 shark-attacks-ncl.csv SHARK_ATTACKS_NCL
 .mode markdown
-select 
-    year as "Year",
-    count(*) as nb_attacks
-from shark_attacks_ncl
-group by year
-order by year desc limit 10;
 
 docker run \
 --mount type=bind,source="$(pwd)",target=/home/schcrwlr \
@@ -115,3 +109,48 @@ schemacrawler/schemacrawler \
 
 file shark-attacks-ncl.png
 xdg-open shark-attacks-ncl.png
+
+
+sqlite3 shark-attacks-ncl.sqlite
+
+--Nb attaques par année
+select 
+    year as "Year",
+    count(*) as nb_attacks
+from shark_attacks_ncl
+group by year
+order by year desc limit 10;
+
+-- Pourcentage d'attaques par type de requin globalement
+select species,
+    count(*)
+from SHARK_ATTACKS_NCL
+group by species
+order by count(*) desc;
+
+-- Répartition des attaques par spot et par commune, par province
+select commune_nom,
+    count(*)
+from SHARK_ATTACKS_NCL
+group by commune_nom
+order by count(*) desc;
+
+select province,
+    count(*)
+from SHARK_ATTACKS_NCL
+group by province
+order by count(*) desc;
+
+-- Attaques par saison
+select season,
+    count(*) as nb_attacks
+from SHARK_ATTACKS_NCL
+group by season
+order by count(*) desc;
+
+
+-- Nb attaques mortelles vs. non mortelles
+select is_fatal, count(*)
+from SHARK_ATTACKS_NCL
+group by is_fatal
+order by count(*) desc;
