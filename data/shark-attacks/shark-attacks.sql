@@ -64,6 +64,7 @@ create table SHARK_ATTACKS_NCL (
     season VARCHAR(6),
     type VARCHAR(10),
     country VARCHAR(13),
+    country_code_ISO_3166_1 VARCHAR(3),
     commune_nom VARCHAR(11),
     coast VARCHAR(4),
     location VARCHAR(30),
@@ -94,6 +95,11 @@ create table SHARK_ATTACKS_NCL (
 
 .mode csv
 .import --skip 1 shark-attacks-ncl.csv SHARK_ATTACKS_NCL
+
+update SHARK_ATTACKS_NCL set age=null where length(age) = 0;
+update SHARK_ATTACKS_NCL set code_cog=null where length(code_cog) = 0;
+update SHARK_ATTACKS_NCL set skark_size_centimeters=null where length(skark_size_centimeters) = 0;
+
 
 clear
 docker run \
@@ -182,7 +188,12 @@ order by age desc;
 select cast(age/10 as integer) as age_cat,
     count(*) as nb_attacks
 from SHARK_ATTACKS_NCL
-where
-length(age) > 0
 group by age_cat
 order by age_cat asc;
+
+
+select cast(skark_size_centimeters/100 as integer) as shark_size_cat,
+    count(*) as nb_attacks
+from SHARK_ATTACKS_NCL
+group by shark_size_cat
+order by shark_size_cat asc;
