@@ -94,8 +94,8 @@ create table SHARK_ATTACKS_NCL (
 
 .mode csv
 .import --skip 1 shark-attacks-ncl.csv SHARK_ATTACKS_NCL
-.mode markdown
 
+clear
 docker run \
 --mount type=bind,source="$(pwd)",target=/home/schcrwlr \
 --rm -it \
@@ -112,6 +112,7 @@ xdg-open shark-attacks-ncl.png
 
 
 sqlite3 shark-attacks-ncl.sqlite
+.mode markdown
 
 --Nb attaques par année
 select 
@@ -123,34 +124,35 @@ order by year desc limit 10;
 
 -- Pourcentage d'attaques par type de requin globalement
 select species,
-    count(*)
+    count(*) as nb_attacks
 from SHARK_ATTACKS_NCL
 group by species
-order by count(*) desc;
+order by nb_attacks desc;
 
 -- Répartition des attaques par spot et par commune, par province
 select commune_nom,
-    count(*)
+    count(*) as nb_attacks
 from SHARK_ATTACKS_NCL
 group by commune_nom
-order by count(*) desc;
+order by nb_attacks desc;
 
 select province,
-    count(*)
+    count(*) as nb_attacks
 from SHARK_ATTACKS_NCL
 group by province
-order by count(*) desc;
+order by nb_attacks desc;
 
 -- Attaques par saison
 select season,
     count(*) as nb_attacks
 from SHARK_ATTACKS_NCL
 group by season
-order by count(*) desc;
+order by nb_attacks desc;
 
 
 -- Nb attaques mortelles vs. non mortelles
-select is_fatal, count(*)
+select is_fatal,
+    count(*) as nb_attacks
 from SHARK_ATTACKS_NCL
 group by is_fatal
-order by count(*) desc;
+order by nb_attacks desc;
