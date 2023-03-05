@@ -59,7 +59,7 @@ create table SHARK_ATTACKS_NCL (
     moon_phase VARCHAR(15),
     year_month VARCHAR(7),
     year INTEGER,
-    month INTEGER,
+    month VARCHAR(10),
     dow VARCHAR(9),
     season VARCHAR(6),
     type VARCHAR(10),
@@ -129,7 +129,8 @@ from SHARK_ATTACKS_NCL
 group by species
 order by nb_attacks desc;
 
--- Répartition des attaques par spot et par commune, par province
+-- Répartition des attaques par
+-- spot et par commune, par province
 select commune_nom,
     count(*) as nb_attacks
 from SHARK_ATTACKS_NCL
@@ -149,6 +150,18 @@ from SHARK_ATTACKS_NCL
 group by season
 order by nb_attacks desc;
 
+-- Attaques par mois
+select month,
+    count(*) as nb_attacks
+from SHARK_ATTACKS_NCL
+group by month
+order by nb_attacks desc;
+
+select strftime('%m', date) as month,
+    count(*) as nb_attacks
+from SHARK_ATTACKS_NCL
+group by month
+order by month asc;
 
 -- Nb attaques mortelles vs. non mortelles
 select is_fatal,
@@ -156,3 +169,20 @@ select is_fatal,
 from SHARK_ATTACKS_NCL
 group by is_fatal
 order by nb_attacks desc;
+
+
+-- age ds victimes
+select age,
+    count(*) as nb_attacks
+from SHARK_ATTACKS_NCL
+group by age
+order by age desc;
+
+-- attaques par tranches d'ages
+select cast(age/10 as integer) as age_cat,
+    count(*) as nb_attacks
+from SHARK_ATTACKS_NCL
+where
+length(age) > 0
+group by age_cat
+order by age_cat asc;
