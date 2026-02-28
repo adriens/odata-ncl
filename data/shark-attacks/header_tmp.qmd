@@ -1,0 +1,38 @@
+---
+title: |
+  Analyse des Attaques de Requin
+  en Nouvelle-Calédonie
+subtitle: "Décryptage statistique de 45 ans d'incidents : des chiffres pour comprendre"
+author:
+  - name: "[Adrien SALES (dev.to/adriens)](https://dev.to/adriens)"
+date: "2026-02-28"
+abstract: |
+  *Ce rapport propose une analyse statistique approfondie des attaques de requins recensées en Nouvelle-Calédonie [@kaggledataset].*
+  
+  *Produit par un non-professionnel de la biologie marine, ce travail doit être considéré comme la production d'un "data-citizen" engagé dans l'ouverture et l'analyse des données publiques.*
+  
+  *Ce travail a été produit dans le cadre du [Built with Google Gemini: Writing Challenge](https://dev.to/challenges/mlh-built-with-google-gemini-02-25-26) [@geminichallenge], un hackathon intensif s'étant déroulé sur un week-end du 26 février 2026.*
+  
+  *Sa rédaction a été motivée par l'attaque fatale survenue le 22 février 2026 contre un pratiquant de wingfoil (NC La 1ère [@newswingfoil2026]), rappelant l'urgence de comprendre ces dynamiques [@newsattack2026].*
+  
+  *L'étude explore également l'influence de la qualité des eaux de baignade [@kagglewaterquality] et propose plusieurs analyses détaillées via des notebooks techniques [@kagglekpi; @kaggledummies; @kagglessff11] et un article dédié [@devtoarticle].*
+  
+  *Ces analyses sont produites exclusivement à l'aide de logiciels Open Source et de données ouvertes (Open Data).*
+bibliography: references.bib
+citeproc: true
+citation-style: ieee-custom.csl
+link-citations: true
+keywords: [Requin, Nouvelle-Calédonie, Analyse de données, Open Data, Gemini, Kaggle]
+subject: "Analyse statistique des attaques de requins en Nouvelle-Calédonie et facteurs environnementaux."
+format:
+  pdf:
+    toc: true
+    number-sections: true
+    output-file: "shark-attacks-ncl.pdf"
+    papersize: a4
+    pdf-engine: xelatex
+    include-in-header: preamble.tex
+execute:
+  echo: false
+  warning: false
+---

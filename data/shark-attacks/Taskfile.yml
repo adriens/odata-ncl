@@ -1,0 +1,25 @@
+version: '3'
+
+tasks:
+  default:
+    desc: "Compile the Quarto report to PDF"
+    cmds:
+      - quarto render shark-attacks-ncl.qmd --to pdf
+    sources:
+      - shark-attacks-ncl.qmd
+      - references.bib
+      - shark-attacks-ncl.sqlite
+    generates:
+      - shark-attacks-ncl.pdf
+
+  clean:
+    desc: "Remove generated PDF and temporary files"
+    cmds:
+      - rm -f shark-attacks-ncl.pdf
+      - rm -f shark-attacks-ncl.tex
+      - rm -f shark-attacks-ncl.log
+      - rm -f shark-attacks-ncl.out
+      - rm -f shark-attacks-ncl.aux
+      - rm -f shark-attacks-ncl.toc
+      - rm -rf shark-attacks-ncl_files
+      - rm -rf .quarto

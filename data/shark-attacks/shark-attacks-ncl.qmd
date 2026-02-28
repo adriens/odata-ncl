@@ -1,0 +1,559 @@
+---
+title: |
+  Analyse des Attaques de Requin
+  en Nouvelle-Calédonie
+subtitle: "Décryptage statistique de 45 ans d'incidents : des chiffres pour comprendre"
+author:
+  - name: "[Adrien SALES (dev.to/adriens)](https://dev.to/adriens)"
+date: "2026-02-28"
+abstract: |
+  *Ce rapport propose une analyse statistique approfondie des attaques de requins recensées en Nouvelle-Calédonie [@kaggledataset].*
+  
+  *Produit par un non-professionnel de la biologie marine, ce travail doit être considéré comme la production d'un "data-citizen" engagé dans l'ouverture et l'analyse des données publiques.*
+  
+  *Ce travail a été produit dans le cadre du [Built with Google Gemini: Writing Challenge](https://dev.to/challenges/mlh-built-with-google-gemini-02-25-26) [@geminichallenge], un hackathon intensif s'étant déroulé sur un week-end du 26 février 2026.*
+  
+  *Sa rédaction a été motivée par l'attaque fatale survenue le 22 février 2026 contre un pratiquant de wingfoil (NC La 1ère [@newswingfoil2026]), rappelant l'urgence de comprendre ces dynamiques [@newsattack2026].*
+  
+  *L'étude explore également l'influence de la qualité des eaux de baignade [@kagglewaterquality] et propose plusieurs analyses détaillées via des notebooks techniques [@kagglekpi; @kaggledummies; @kagglessff11] et un article dédié [@devtoarticle].*
+  
+  *Ces analyses sont produites exclusivement à l'aide de logiciels Open Source et de données ouvertes (Open Data).*
+bibliography: references.bib
+citeproc: true
+citation-style: nature.csl
+link-citations: true
+keywords: [Requin, Nouvelle-Calédonie, Analyse de données, Open Data, Gemini, Kaggle]
+subject: "Analyse statistique des attaques de requins en Nouvelle-Calédonie et facteurs environnementaux."
+format:
+  pdf:
+    toc: true
+    number-sections: true
+    output-file: "shark-attacks-ncl.pdf"
+    papersize: a4
+    pdf-engine: xelatex
+    include-in-header: preamble.tex
+execute:
+  echo: false
+  warning: false
+---
+
+```{python}
+import sqlite3
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+
+# Palette de couleurs globale
+COLOR_FATAL = '#e74c3c'
+COLOR_NON_FATAL = '#3498db'
+PALETTE_GRAVITY = {'Fatale': COLOR_FATAL, 'Non fatale': COLOR_NON_FATAL}
+
+# Connexion à la base de données
+conn = sqlite3.connect('shark-attacks-ncl.sqlite')
+
+# Chargement des données principales
+query = """
+SELECT 
+    case_number, date, year, month, dow, season, type, 
+    commune_nom, province, activity, sex, age, is_fatal, 
+    species_1, moon_phase, skark_size_centimeters,
+    time, day_part
+FROM SHARK_ATTACKS_NCL
+"""
+df = pd.DataFrame(pd.read_sql_query(query, conn))
+
+# Nettoyage rapide
+df['date'] = pd.to_datetime(df['date'], errors='coerce')
+df['is_fatal'] = df['is_fatal'].fillna('N').replace({'Y': 'Fatale', 'N': 'Non fatale'})
+df['age'] = pd.to_numeric(df['age'], errors='coerce')
+```
+
+# Introduction
+
+Ce rapport présente une analyse statistique détaillée des attaques de requin recensées en Nouvelle-Calédonie. Les données proviennent d'une base de données locale intégrant des informations temporelles, géographiques, biologiques et environnementales.
+
+# À propos de l'auteur
+
+Adrien SALES est engagé depuis de nombreuses années dans l'animation, la promotion et la pratique de l'**Open Data**. À travers ses travaux, il œuvre pour faire vivre l'utopie d'une *smart city* qui ouvre ses données de manière optimale à ses citoyens, favorisant une vie plus connectée et plus intelligente. Sa vision repose sur des prises de décisions éclairées, pilotées par une donnée de qualité et publiquement accessible.
+
+Vous pouvez suivre ses travaux et échanger avec lui sur les plateformes suivantes :
+
+- **$\mathbb{X}$ (Twitter)** : [rastadidi](https://x.com/rastadidi)
+- **LinkedIn** : [Adrien SALES](https://www.linkedin.com/in/adrien-sales/)
+- **GitHub** : [adriens](https://github.com/adriens/)
+- **Kaggle** : [Adrien SALES](https://www.kaggle.com/adriensales)
+- **Dev.to** : [adriens](https://dev.to/adriens)
+- **YouTube** : [DevOPS LABS](https://www.youtube.com/@devopslabs2812)
+
+# Analyse Temporelle
+
+## Évolution historique (tranches de 15 ans depuis 2026)
+
+L'analyse par tranches de 15 ans, calculée à rebours depuis l'année courante, permet de lisser les données sur une période plus longue tout en montrant clairement la tendance globale.
+
+```{python}
+plt.figure(figsize=(10, 6))
+current_year = 2026
+bin_size = 15
+
+df['bin_start'] = df['year'].apply(lambda y: current_year - ((current_year - y) // bin_size) * bin_size - (bin_size - 1))
+df['label'] = df['bin_start'].astype(str) + '-' + (df['bin_start'] + bin_size - 1).astype(str)
+
+df_pivot = df.groupby(['label', 'is_fatal']).size().unstack(fill_value=0)
+labels_order = df[['bin_start', 'label']].drop_duplicates().sort_values('bin_start')['label']
+df_pivot = df_pivot.reindex(labels_order)
+
+df_pivot.plot(kind='bar', stacked=True, color=[COLOR_FATAL, COLOR_NON_FATAL], ax=plt.gca())
+plt.title("Progression du nombre d'attaques par tranches de 15 ans")
+plt.xlabel("Période (15 ans)")
+plt.ylabel("Nombre total d'attaques")
+plt.legend(title='Gravité')
+plt.xticks(rotation=45)
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.show()
+```
+
+\begin{keyfinding}{Key Finding}
+\textbf{On observe une accélération marquée des signalements} sur les deux dernières tranches (1997-2026), avec un volume d'incidents historiquement élevé sur la période la plus récente.
+\end{keyfinding}
+
+## Saisonnalité
+
+L'analyse combinée des mois et des saisons permet d'identifier les périodes de forte activité.
+
+```{python}
+plt.figure(figsize=(12, 6))
+plt.subplot(1, 2, 1)
+order = ['January', 'February', 'March', 'April', 'May', 'June', 
+         'July', 'August', 'September', 'October', 'November', 'December']
+sns.countplot(data=df, x='month', order=order, hue='is_fatal', palette=PALETTE_GRAVITY)
+plt.title("Répartition mensuelle")
+plt.xticks(rotation=45)
+plt.xlabel("Mois")
+plt.ylabel("Nombre d'attaques")
+plt.legend(title='Gravité')
+
+plt.subplot(1, 2, 2)
+sns.countplot(data=df, x='season', order=['SUMMER', 'WINTER'], hue='is_fatal', palette=PALETTE_GRAVITY)
+plt.title("Répartition par Saison")
+plt.xlabel("Saison")
+plt.ylabel("Nombre d'attaques")
+plt.legend(title='Gravité')
+
+plt.tight_layout()
+plt.show()
+```
+
+\begin{keyfindingimportant}{Key Finding}
+\textbf{La saison chaude (SUMMER) concentre l'immense majorité des attaques} (plus de 85\%), avec des pics particulièrement marqués entre janvier et mai.
+\end{keyfindingimportant}
+
+# Analyse Géographique
+
+## Répartition par Province
+
+```{python}
+plt.figure(figsize=(8, 8))
+province_counts = df['province'].value_counts()
+plt.pie(province_counts, labels=province_counts.index, autopct='%1.1f%%', 
+        startangle=140, colors=sns.color_palette('pastel'), pctdistance=0.85)
+centre_circle = plt.Circle((0,0), 0.70, fc='white')
+fig = plt.gcf()
+fig.gca().add_artist(centre_circle)
+plt.title("Répartition des attaques par Province")
+plt.show()
+```
+
+\begin{keyfinding}{Key Finding}
+\textbf{La Province Sud regroupe plus des deux tiers des incidents recensés,} ce qui s'explique en partie par la concentration démographique et des activités nautiques autour de l'agglomération nouméenne.
+\end{keyfinding}
+
+## Hiérarchie Province-Commune (Sunburst)
+
+```{python}
+import plotly.express as px
+import plotly.io as pio
+df_geo = df.groupby(['province', 'commune_nom']).size().reset_index(name='count')
+fig = px.sunburst(df_geo, path=['province', 'commune_nom'], values='count',
+                  color='province', color_discrete_sequence=px.colors.qualitative.Pastel)
+fig.update_layout(title_text="Répartition hiérarchique Province > Commune", title_x=0.5)
+pio.show(fig, renderer="png")
+```
+
+# Profil des Incidents
+
+## Activités au moment de l'attaque
+
+Certaines activités nautiques semblent plus exposées que d'autres.
+
+```{python}
+plt.figure(figsize=(12, 6))
+activity_counts = df['activity'].value_counts().head(10)
+# Nettoyage des index vides
+labels = [act if act != '' else 'Inconnue' for act in activity_counts.index]
+
+sns.barplot(x=activity_counts.values, y=labels, palette='viridis')
+plt.title("Top 10 des activités lors des attaques")
+plt.xlabel("Nombre d'incidents")
+plt.ylabel("Activité")
+plt.show()
+```
+
+\begin{keyfinding}{Key Finding}
+\textbf{La chasse sous-marine (Spearfishing) et la baignade} sont les activités les plus représentées dans l'historique des incidents. Cela souligne l'importance de la sensibilisation sur ces pratiques, particulièrement lorsqu'elles sont exercées dans des zones ou à des horaires identifiés comme plus sensibles.
+\end{keyfinding}
+
+## Espèces impliquées
+
+L'identification de l'espèce est cruciale pour comprendre la nature des interactions.
+
+```{python}
+plt.figure(figsize=(10, 6))
+species_counts = df['species_1'].value_counts().head(5)
+sns.barplot(x=species_counts.values, y=species_counts.index, palette='magma')
+plt.title("Principales espèces de requins identifiées")
+plt.xlabel("Nombre d'identifications")
+plt.ylabel("Espèce")
+plt.show()
+```
+
+## Analyse Croisée : Espèce vs Gravité
+
+Cette analyse évalue la dangerosité relative des espèces identifiées.
+
+```{python}
+# Filtrer les espèces connues
+df_species = df[df['species_1'].notna() & (df['species_1'] != '')].copy()
+df_sp_pivot = df_species.groupby(['species_1', 'is_fatal']).size().unstack(fill_value=0)
+
+# S'assurer de l'ordre des colonnes
+for status in ['Fatale', 'Non fatale']:
+    if status not in df_sp_pivot.columns:
+        df_sp_pivot[status] = 0
+df_sp_pivot = df_sp_pivot[['Fatale', 'Non fatale']]
+
+# Tri par nombre total
+df_sp_pivot['total'] = df_sp_pivot.sum(axis=1)
+df_sp_pivot = df_sp_pivot.sort_values('total', ascending=True).drop(columns='total')
+
+df_sp_pivot.plot(kind='barh', stacked=True, color=[COLOR_FATAL, COLOR_NON_FATAL], figsize=(10, 6), ax=plt.gca())
+plt.title("Létalité par espèce identifiée")
+plt.xlabel("Nombre d'incidents")
+plt.ylabel("Espèce")
+plt.legend(title='Gravité')
+plt.grid(axis='x', linestyle='--', alpha=0.7)
+plt.show()
+```
+
+\begin{keyfindingimportant}{Key Finding}
+\textbf{Le Requin Tigre présente un taux de létalité de 50\% sur les cas identifiés,} confirmant sa dangerosité majeure, suivi de près par le \textbf{Requin Bouledogue}.
+\end{keyfindingimportant}
+
+# Facteurs Environnementaux
+
+## L'Heure Critique
+
+Analyse du moment de la journée permettant d'identifier des pics d'activité.
+
+```{python}
+df_time = df[df['time'].str.len() > 0].copy()
+def time_to_float(t):
+    try:
+        h, m = map(int, t.split(':'))
+        return h + m/60.0
+    except: return None
+df_time['hour_float'] = df_time['time'].apply(time_to_float)
+df_time = df_time.dropna(subset=['hour_float'])
+
+plt.figure(figsize=(12, 6))
+plt.subplot(1, 2, 1)
+sns.kdeplot(df_time['hour_float'], fill=True, color='#f39c12', alpha=0.5, bw_adjust=0.5)
+plt.axvline(x=12, color='gray', linestyle='--', alpha=0.5)
+plt.title("Densité des attaques par heure (n=33)")
+plt.xlabel("Heure de la journée")
+plt.ylabel("Densité")
+
+plt.subplot(1, 2, 2)
+df_period = df[df['day_part'].isin(['AM', 'PM'])]
+df_period_pivot = df_period.groupby(['day_part', 'is_fatal']).size().unstack(fill_value=0)
+df_period_pivot = df_period_pivot.reindex(['AM', 'PM'])
+df_period_pivot.plot(kind='bar', stacked=True, color=[COLOR_FATAL, COLOR_NON_FATAL], ax=plt.gca())
+plt.title("Répartition Matin vs Après-midi (n=32)")
+plt.legend(title='Gravité')
+plt.xticks(rotation=0)
+plt.tight_layout()
+plt.show()
+```
+
+\begin{keyfinding}{Key Finding}
+\textbf{L'activité des squales semble s'intensifier} de manière spectaculaire en fin d'après-midi. L'analyse des données montre une concentration majeure sur la tranche \textbf{16h-18h}, correspondant à l'heure où la luminosité décline et où l'affluence sur les plages reste importante.
+\end{keyfinding}
+
+## Phases Lunaires
+
+```{python}
+moon_order = ['NEW_MOON', 'WAXING_CRESCENT', 'FIRST_QUARTER', 'WAXING_GIBBOUS', 
+              'FULL_MOON', 'WANING_GIBBOUS', 'LAST_QUARTER', 'WANING_CRESCENT']
+angles = np.linspace(0, 2*np.pi, len(moon_order), endpoint=False)
+width = (2*np.pi) / len(moon_order)
+df_moon = df[df['moon_phase'].isin(moon_order)].copy()
+counts = df_moon.groupby(['moon_phase', 'is_fatal']).size().unstack(fill_value=0)
+for status in ['Non fatale', 'Fatale']:
+    if status not in counts.columns: counts[status] = 0
+counts = counts.reindex(moon_order).fillna(0)
+
+fig = plt.figure(figsize=(10, 10))
+fig.patch.set_facecolor('#0b1021')
+ax = fig.add_subplot(111, projection='polar')
+ax.set_facecolor('#0b1021')
+ax.bar(angles, counts['Non fatale'], width=width, color=COLOR_NON_FATAL, edgecolor='white', label='Non fatale', alpha=0.8)
+ax.bar(angles, counts['Fatale'], width=width, bottom=counts['Non fatale'], color=COLOR_FATAL, edgecolor='white', label='Fatale', alpha=0.9)
+ax.set_theta_direction(-1)
+ax.set_theta_offset(np.pi/2)
+ax.set_xticks(angles)
+ax.set_xticklabels(['Nouv. Lune', 'Premier Croissant', 'Premier Quartier', 'Lune Gibbeuse', 
+                    'Pleine Lune', 'Lune Gibbeuse Décroiss.', 'Dernier Quartier', 'Dernier Croissant'], color='white')
+ax.grid(color='white', linestyle='--', alpha=0.3)
+plt.title("Répartition selon le cycle lunaire", color='white', pad=30, fontsize=16)
+legend = ax.legend(loc='upper right', bbox_to_anchor=(1.1, 1.1))
+plt.show()
+```
+
+\begin{keyfinding}{Key Finding}
+\textbf{Le cycle lunaire semble influencer la fréquence des interactions,} avec des pics observés durant le \textbf{Premier Croissant} et la \textbf{Pleine Lune}.
+\end{keyfinding}
+
+# Glossaire des Espèces
+
+Voici les principales espèces impliquées dans les interactions en Nouvelle-Calédonie, selon les données de l'[**UICN (IUCN)**](https://iucn.org/fr) [@iucnglobal] :
+
+| Nom Commun | Nom Scientifique | Statut de Conservation |
+|------------|------------------|------------------------|
+| **Requin tigre** | *Galeocerdo cuvier* | Quasi menacé (NT) |
+| **Requin bouledogue** | *Carcharhinus leucas* | Quasi menacé (NT) |
+| **Grand requin blanc** | *Carcharodon carcharias* | Vulnérable (VU) |
+| **Requin gris de récif** | *Carcharhinus amblyrhynchos* | Quasi menacé (NT) |
+| **Requin citron** | *Negaprion brevirostris* | Quasi menacé (NT) |
+
+# Entretien : Décrypter pour mieux nager
+
+## Bio Express : Adrien Sales
+
+\begin{tcolorbox}[colback=gray!5!white,colframe=gray!75!black]
+\begin{itemize}
+    \item \faMapMarker\ \textbf{Lieu} : Nouméa, Nouvelle-Calédonie.
+    \item \faSwimmer\ \textbf{Signe particulier} : Waterman passionné (Wingfoil, Apnée, Natation en Open Water, Monopalme) et Data-Citizen engagé.
+    \item \faLaptop\ \textbf{Outils de prédilection} :
+    \begin{itemize}
+        \item \faPython\ \textbf{Python} (Pandas, Seaborn, Plotly)
+        \item \faDatabase\ \textbf{SQLite \& DuckDB} (Stockage et analyse OLAP)
+        \item \faChartBar\ \textbf{Quarto} (Publication scientifique)
+        \item \faGithub\ \textbf{GitHub} (Hébergement et versioning)
+        \item \faKaggle\ \textbf{Kaggle} (Partage de données et notebooks)
+        \item \faBoxOpen\ \textbf{uv} (Gestion d'environnement)
+        \item \faTerminal\ \textbf{Task} (Automatisation)
+    \end{itemize}
+\end{itemize}
+\end{tcolorbox}
+
+## L'entretien
+
+*Au cours d'un week-end intensif de février 2026, entre deux sessions de lagon, Adrien Sales a mobilisé l'Open Data et l'IA pour décrypter l'historique des interactions avec les squales. Voici son regard de citoyen engagé.*
+
+### Passion Lagon
+
+**🎙️ Gemini : Adrien, vous vous définissez comme un 'data-citizen'. Quel a été le déclencheur qui vous a convaincu que cette analyse était une nécessité publique ?**
+
+**🏄‍♂️ A.S.** : Je suis avant tout un waterman ; je passe énormément de temps dans l'eau (natation, windsurf, wingfoil, prone/stand-up paddle, apnée, monopalme en Open Water, va'a). Pour moi, nager au large en toute quiétude ou lancer un papillon dans la houle est une source de grand bonheur et d'une immense liberté. Être dans l'eau est mon mode de vie. C'est tout naturellement que je me suis intéressé aux attaques de requins, à la qualité des eaux de baignade et aux attaques de requin, pour partager ces enjeux de manière factuelle.
+
+### La Vision Smart City
+
+**🎙️ Gemini : Comment imaginez-vous l'intégration concrète de ces analyses dans le quotidien des usagers de la mer ?**
+
+**🏄‍♂️ A.S.** : Mon rêve de "Smart City" est l'interopérabilité totale. J'aimerais qu'on puisse, via une API, produire un indicateur de risque calculé par Machine Learning à partir de nombreux facteurs (saison, pluie, pollution, périodes de ponte, turbidité...). Ce score serait consultable sur le web, par chatbots, applis mobiles ou alertes SMS. On pourrait même imaginer des notifications directement sur les smartwatches (Garmin Fenix, Apple Watch...). Les cas d'usage sont illimités dès lors que la donnée est ouverte et de qualité.
+
+\begin{center}
+\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black,width=0.8\textwidth,arc=5mm]
+\centering\itshape\Large
+"La donnée ne remplace pas l'instinct, elle l'éduque."
+\end{tcolorbox}
+\end{center}
+
+### Savoir pour apaiser
+
+**🎙️ Gemini : Vous connaissez désormais ces chiffres par cœur : les pics de 16h, l'influence de la lune... Est-ce que cette connaissance a changé votre propre manière de pratiquer vos passions ?**
+
+**🏄‍♂️ A.S.** : Absolument. On ne pratique plus de la même manière quand on a conscience des probabilités. Cela ne m'empêche pas d'aller à l'eau, mais cela affine mon jugement sur les conditions : j'évite désormais certaines tranches horaires ou certaines zones après de fortes pluies.
+
+**🎙️ Gemini : Pour beaucoup, les requins provoquent une peur irrationnelle. La donnée peut-elle apaiser les débats ?**
+
+**🏄‍♂️ A.S.** : La peur naît souvent d'un manque de savoir. Mon utopie est celle d'une société plus démocratique et apaisée car plus éclairée. Ce qui me passionne, c'est de modéliser des sujets de société complexes en problèmes mathématiques pour en optimiser les solutions. Rien n'est jamais binaire ; c'est dans la nuance et la recherche du meilleur compromis qu'on fait avancer les choses.
+
+### Transmission
+
+**🎙️ Gemini : Quel message pour un jeune calédonien passionné ? Seriez-vous prêt à aller dans les écoles ?**
+
+**🏄‍♂️ A.S.** : Absolument ! Formé par la méthode Montessori, je crois à l'apprentissage par l'expérience. J'adorerais échanger avec des élèves pour leur montrer que la science n'est pas réservée aux pros. Chaque citoyen peut contribuer. La science est un bien commun, une aventure qui appartient à tous !
+
+**A.S. (Mot de la fin)** : Merci à Gemini de m'avoir permis d'affiner mes réflexions et à DEV.to pour ce hackathon qui a réellement été le déclencheur de ce travail intense mené tout au long de ce samedi matin. C'est une expérience extrêmement satisfaisante.
+
+# Vigilance Lagon : Prototype d'aide à la décision
+
+Fidèle à la vision d'une *Smart City* évoquée dans l'entretien, voici un prototype simplifié d'algorithme de score de risque. Ce modèle "à points" permettrait d'alimenter un indicateur visuel consultable en temps réel par les usagers.
+
+## Matrice de Pondération des Risques
+
+Ce barème détaille le poids de chaque facteur dans le calcul du score final. Plus le score est élevé, plus le facteur est considéré comme déterminant dans l'historique des incidents.
+
+| Paramètre | Condition de risque | Score |
+|:---|:---|:---:|
+| \faCloudRain\ \textbf{Pluie} | Fortes précipitations (J ou J-1) | \cellcolor{red!60}\color{white}\textbf{+5} |
+| \faFish\ \textbf{Ponte} | Saison de reproduction active | \cellcolor{red!40}\textbf{+4} |
+| \faClock\ \textbf{Heure} | Fin de journée (16h - 18h) | \cellcolor{orange!40}\textbf{+3} |
+| \faSun\ \textbf{Saison} | Été austral (Janvier - Mai) | \cellcolor{orange!40}\textbf{+3} |
+| \faTint\ \textbf{Eau} | Turbidité / Pollution visible | \cellcolor{yellow!40}\textbf{+2} |
+| \faClock\ \textbf{Heure} | Milieu de journée (11h - 12h) | \cellcolor{yellow!20}\textbf{+1} |
+| \faMoon\ \textbf{Lune} | Pleine Lune ou Premier Croissant | \cellcolor{yellow!20}\textbf{+1} |
+
+## Arbre de Décision (Logique de Vigilance)
+
+Ce diagramme illustre le cheminement logique pour évaluer le niveau de vigilance recommandé avant une mise à l'eau.
+
+\begin{center}
+\begin{tikzpicture}[node distance=2.2cm, auto, scale=0.9, transform shape]
+    % Noeuds de décision
+    \node (rain) [decision] {\faCloudRain\ Pluie forte ?};
+    \node (time) [decision, below of=rain] {\faClock\ 16h - 18h ?};
+    \node (summer) [decision, below of=time] {\faSun\ Été austral ?};
+    \node (ponte) [decision, below of=summer] {\faFish\ Saison ponte ?};
+
+    % Noeuds de résultat
+    \node (critique) [critique, right of=rain, xshift=4cm] {\faSkullCrossbones\ CRITIQUE};
+    \node (elevee) [elevee, right of=time, xshift=4cm] {\faExclamationTriangle\ ÉLEVÉE};
+    \node (accrue) [accrue, right of=ponte, xshift=4cm] {\faInfoCircle\ ACCRUE};
+    \node (standard) [standard, below of=ponte, yshift=-0.5cm] {\faCheckCircle\ STANDARD};
+
+    % Liaisons
+    \draw [arrow] (rain) -- node[label] {OUI (+5)} (critique);
+    \draw [arrow] (rain) -- node[label] {NON (+0)} (time);
+    
+    \draw [arrow] (time) -- node[label] {OUI (+3)} (elevee);
+    \draw [arrow] (time) -- node[label] {NON (+0)} (summer);
+    
+    \draw [arrow] (summer) -- node[label] {OUI (+3)} (ponte);
+    \draw [arrow] (summer) -| node[label, pos=0.25, xshift=1.5cm] {NON (+0)} (standard);
+    
+    \draw [arrow] (ponte) -- node[label] {OUI (+4)} (accrue);
+    \draw [arrow] (ponte) -- node[label] {NON (+0)} (standard);
+\end{tikzpicture}
+\end{center}
+
+\begin{keyfinding}{Zones de baignade protégées}
+En cas de vigilance critique (pluie, turbidité), il est fortement recommandé de privilégier les zones sécurisées comme la \textbf{Baie des Citrons à Nouméa}, désormais équipée de filets de protection. Consultez les consignes officielles de la \textbf{Ville de Nouméa} pour plus de détails.
+\end{keyfinding}
+
+Plus d'informations sur les filets anti-requins [@newsfiletsnoumea] et les consignes de sécurité de la ville [@mairienoumeasecurite].
+
+## Pseudo-code : Vers une Implémentation API
+
+Pour concrétiser cet outil, on pourrait imaginer une API publique par exemple, librement accessible, agrégeant les données de différentes sources ouvertes. Voici une esquisse de la logique algorithmique :
+
+```python
+# Pseudo-code d'agrégation de données pour calcul de risque
+def calculate_shark_risk_score(location_coords):
+    score = 0
+    
+    # 1. Appel API Météo (Pluviométrie J et J-1)
+    rain_data = api_meteo.get_rainfall(location_coords, days=2)
+    if rain_data.max_24h > 10: # Seuil de 10mm
+        score += 5
+        
+    # 2. Appel API Qualité des Eaux (Open Data Nouméa)
+    water_quality = api_noumea.get_bathing_status(location_coords)
+    if water_quality.status == "POLLUTED" or water_quality.turbidity > HIGH:
+        score += 2
+        
+    # 3. Appel API Biologie (Saison de ponte / reproduction)
+    breeding = api_bio.get_breeding_risk(species_list, date.today())
+    if breeding.is_active_season:
+        score += 4
+
+    # 4. Appel API Éphémérides (Lune)
+    moon_phase = api_astro.get_moon_phase(date.today())
+    if moon_phase in ["FULL_MOON", "WAXING_CRESCENT"]:
+        score += 1
+        
+    # 5. Analyse Temporelle (Saison et Heure)
+    current_time = datetime.now()
+    if 16 <= current_time.hour <= 18:
+        score += 3
+    if is_summer_austral(current_time.month):
+        score += 3
+        
+    return map_score_to_vigilance_level(score)
+```
+
+## Grille de Lecture des Scores
+
+| Score Cumulé | Niveau de Vigilance | Recommandation |
+|:-----------:|:-------------------:|----------------|
+| 0 | \textbf{STANDARD} | \textbf{Pratique normale}, rester attentif. |
+| 1 - 3 | \textbf{ACCRUE} | \textbf{Vigilance recommandée}, éviter le large seul. |
+| 4 - 6 | \textbf{ÉLEVÉE} | \textbf{Prudence forte}, éviter les eaux troubles. |
+| $\ge$ 7 | \textbf{CRITIQUE} | **Zones protégées impératives.** |
+
+## Cas d'Usage : Exemples de Calcul
+
+Voici trois scénarios types illustrant le fonctionnement cumulatif de l'algorithme :
+
+\begin{scenariostandard}{Scénario 1 : Matin d'Hiver serein}
+Une session à 8h00 en Juillet par temps sec.
+\begin{itemize}
+    \item \faSnowflake\ Saison (+0) | \faClock\ Heure (+0) | \faCloud\ Pluie (+0) | \faMoon\ Lune (+0)
+\end{itemize}
+\textbf{Total = 0 pt $\rightarrow$ VIGILANCE STANDARD}
+\end{scenariostandard}
+
+\begin{scenarioaccrue}{Scénario 2 : Après-midi d'Été classique}
+Une baignade à 15h00 en Février sans pluie récente.
+\begin{itemize}
+    \item \faSun\ Saison (+3) | \faClock\ Heure (+0) | \faCloud\ Pluie (+0) | \faMoon\ Lune (+0)
+\end{itemize}
+\textbf{Total = 3 pts $\rightarrow$ VIGILANCE ACCRUE}
+\end{scenarioaccrue}
+
+\begin{scenariocritique}{Scénario 3 : Fin de journée après orage}
+Wingfoil à 17h00 en Mars, fortes pluies la veille.
+\begin{itemize}
+    \item \faSun\ Saison (+3) | \faClock\ Heure (+3) | \faCloudRain\ Pluie (+5) | \faMoon\ Lune (+1)
+\end{itemize}
+\textbf{Total = 12 pts $\rightarrow$ VIGILANCE CRITIQUE}
+\end{scenariocritique}
+
+# Perspectives et Améliorations Potentielles
+
+1.  \faCloudRain\ **Corrélation avec la Pluviométrie** : Analyse de la turbidité après de fortes pluies.
+2.  \faTint\ **Qualité des Eaux de Baignade** : Intégration systématique des données de suivi [@kagglewaterquality].
+3.  \faFish\ **Saisonnalité Biologique** : Corrélation avec les cycles de ponte.
+4.  \faWater\ **Données Océanographiques** : Température, courants et profondeur de Secchi.
+
+# Stack Technique
+
+La réalisation de cette étude repose sur un écosystème d'outils **Open Source** garantissant la reproductibilité de l'analyse :
+
+- \faChartPie\ **Moteur d'analyse** : [Quarto](https://quarto.org/), système de publication scientifique et technique.
+- \faCode\ **Langage** : [Python 3](https://www.python.org/), pour le traitement et la modélisation des données.
+- \faBoxOpen\ **Gestionnaire de paquets** : [uv](https://github.com/astral-sh/uv), pour une gestion performante et reproductible de l'environnement Python.
+- \faDatabase\ **Base de données** : [SQLite](https://www.sqlite.org/), pour le stockage structuré des incidents.
+- \faTools\ **Librairies de données** : [Pandas](https://pandas.pydata.org/) (traitement), [Seaborn](https://seaborn.pydata.org/) & [Matplotlib](https://matplotlib.org/) (visualisation statique), [Plotly](https://plotly.com/) (visualisation hiérarchique).
+- \faFilePdf\ **Moteur de rendu PDF** : [XeLaTeX](https://www.tug.org/xetex/), pour une mise en page typographique soignée.
+
+# Références
+
+::: {#refs}
+:::
+
+```{python}
+conn.close()
+```
