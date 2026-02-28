@@ -162,6 +162,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+import plotly.io as pio
 
 # Palette de couleurs globale
 COLOR_FATAL = '#e74c3c'
@@ -184,8 +185,10 @@ df = pd.DataFrame(pd.read_sql_query(query, conn))
 
 # Nettoyage rapide
 df['date'] = pd.to_datetime(df['date'], errors='coerce')
-df['is_fatal'] = df['is_fatal'].fillna('N').replace({'Y': 'Fatale', 'N': 'Non fatale'})
+df['is_fatal'] = df['is_fatal'].replace({'Y': 'Fatale', 'N': 'Non fatale', '': 'Non fatale', None: 'Non fatale'})
 df['age'] = pd.to_numeric(df['age'], errors='coerce')
+df['province'] = df['province'].replace({'': 'INCONNUE', None: 'INCONNUE'})
+df['activity'] = df['activity'].replace({'': 'INCONNUE', None: 'INCONNUE'})
 
 # Style global des graphiques
 sns.set_theme(style="whitegrid", palette="Blues_r")
@@ -215,6 +218,60 @@ Vous pouvez suivre ses travaux et échanger avec lui sur les plateformes suivant
 - **Kaggle** : [Adrien SALES](https://www.kaggle.com/adriensales)
 - **Dev.to** : [adriens](https://dev.to/adriens)
 - **YouTube** : [DevOPS LABS](https://www.youtube.com/@devopslabs2812)
+
+# \faGlobeAsia\ La Nouvelle-Calédonie : Un archipel au cœur du Pacifique
+
+La Nouvelle-Calédonie est un archipel d'Océanie situé en Mélanésie, dans le Pacifique Sud-Ouest [@gouvncgeographie]. Située à environ 1 200 km à l'est de l'Australie et 1 500 km au nord de la Nouvelle-Zélande, elle abrite l'un des plus grands lagons au monde, inscrit au patrimoine mondial de l'UNESCO depuis 2008 [@unescolagoon]. 
+
+![Localisation de la Nouvelle-Calédonie dans le Pacifique [@mapcefan]](ncal-carte-PS.png){width=40% fig-align="center"}
+
+Cet isolement géographique et la richesse de sa biodiversité marine en font un terrain d'étude unique, mais aussi un espace où les interactions entre l'homme et la mégafaune marine sont quotidiennes.
+
+# \faUsers\ Contexte Démographique
+
+La répartition humaine sur l'archipel, basée sur les données de population légale de **2019** [@gouvncpopulation] issues du portail **data.gouv.nc**, est un facteur clé pour comprendre la localisation des incidents nautiques.
+
+```{python}
+import io
+import requests
+
+# URL de l'API CSV de data.gouv.nc
+url_demo = "https://data.gouv.nc/api/explore/v2.1/catalog/datasets/population-legale-de-la-nouvelle-caledonie/exports/csv?lang=fr&timezone=Pacific%2FNoumea&use_labels_for_header=true&csv_separator=%3B"
+
+# Téléchargement des données en mémoire
+response = requests.get(url_demo)
+df_demo = pd.read_csv(io.StringIO(response.text), sep=';')
+
+# On filtre sur l'année la plus récente (2019 d'après le dataset)
+# Colonnes identifiées : commune, column_6 (Année), column_5 (Population totale), province_maj
+df_demo = df_demo[df_demo['column_6'] == df_demo['column_6'].max()]
+
+# Analyse par Province
+df_prov = df_demo.groupby('province_maj')['column_5'].sum().reset_index()
+
+plt.figure(figsize=(12, 6))
+plt.subplot(1, 2, 1)
+plt.pie(df_prov['column_5'], labels=df_prov['province_maj'], autopct='%1.1f%%', 
+        startangle=140, colors=sns.color_palette('pastel'), pctdistance=0.85)
+centre_circle = plt.Circle((0,0), 0.70, fc='white')
+fig = plt.gcf()
+fig.gca().add_artist(centre_circle)
+plt.title("Répartition de la Population par Province")
+
+# Top 5 Communes
+plt.subplot(1, 2, 2)
+df_top_communes = df_demo.sort_values('column_5', ascending=False).head(5)
+sns.barplot(data=df_top_communes, x='column_5', y='commune', palette='viridis')
+plt.title("Top 5 des communes les plus peuplées")
+plt.xlabel("Nombre d'habitants")
+
+plt.tight_layout()
+plt.show()
+```
+
+\begin{keyfinding}{Key Finding}
+\textbf{Près de 65 \% de la population réside en Province Sud,} avec une concentration extrême sur l'agglomération nouméenne (Nouméa, Dumbéa, Mont-Dore, Païta). Le Top 5 inclut également Lifou, illustrant le poids démographique des îles. Cette densité corrèle fortement avec la répartition géographique des incidents observée plus loin.
+\end{keyfinding}
 
 # \faHistory\ Analyse Temporelle
 
@@ -299,21 +356,86 @@ plt.show()
 \textbf{La Province Sud concentre près de 60 \% des incidents recensés.} Cette prédominance s'explique par la forte densité démographique et la concentration des activités nautiques autour du Grand Nouméa. Les Provinces Nord et des Îles suivent avec respectivement environ 21 \% et 13 \% des cas.
 \end{keyfinding}
 
-## Hiérarchie Province-Commune (Sunburst)
+## Corrélation Démographie vs Attaques
+
+Cette analyse compare l'évolution de la **population globale de la Nouvelle-Calédonie** (données **data.gouv.nc** [@gouvncpopulation]) et le nombre d'attaques (par gravité), agrégés par **tranches de 10 ans** décomptées à partir de 2026.
+
+```{python}
+# 1. Préparation des tranches de 10 ans
+current_year = 2026
+bin_size = 10
+
+def get_10y_bin(y):
+    start = current_year - ((current_year - y) // bin_size) * bin_size - (bin_size - 1)
+    return f"{start}-{start + bin_size - 1}"
+
+# 2. Agrégation de la population
+response = requests.get(url_demo)
+df_all_pop = pd.read_csv(io.StringIO(response.text), sep=';')
+pop_census = df_all_pop.groupby('column_6')['column_5'].sum().reset_index()
+pop_census.columns = ['year', 'population']
+
+years_full = pd.DataFrame({'year': range(1987, 2027)})
+df_pop_full = pd.merge(years_full, pop_census, on='year', how='left')
+df_pop_full['population'] = df_pop_full['population'].interpolate(method='linear', limit_direction='both')
+
+df_pop_full['bin'] = df_pop_full['year'].apply(get_10y_bin)
+pop_trends = df_pop_full.groupby('bin')['population'].mean().reset_index()
+
+# 3. Agrégation des attaques par tranche de 10 ans et par gravité
+df['bin'] = df['year'].apply(get_10y_bin)
+attacks_trends = df[df['year'] >= 1987].groupby(['bin', 'is_fatal']).size().unstack(fill_value=0)
+
+# S'assurer de l'ordre : 'Fatale' puis 'Non fatale'
+for col in ['Fatale', 'Non fatale']:
+    if col not in attacks_trends.columns:
+        attacks_trends[col] = 0
+attacks_trends = attacks_trends[['Fatale', 'Non fatale']]
+
+# 4. Fusion pour le graphique
+df_final = pd.merge(pop_trends, attacks_trends, on='bin', how='left').fillna(0)
+df_final = df_final.sort_values('bin')
+
+# 5. Graphique à double axe
+fig, ax1 = plt.subplots(figsize=(12, 6))
+
+# Axe 1 : Attaques (Barres empilées)
+df_final.plot(kind='bar', x='bin', y=['Fatale', 'Non fatale'], stacked=True, 
+              color=[COLOR_FATAL, COLOR_NON_FATAL], alpha=0.6, ax=ax1, label=['Fatale', 'Non fatale'])
+ax1.set_xlabel('Période (10 ans)')
+ax1.set_ylabel('Nombre d\'attaques', color='#34495e')
+ax1.tick_params(axis='y', labelcolor='#34495e')
+
+# Axe 2 : Population (Ligne)
+ax2 = ax1.twinx()
+color_pop = '#e67e22'
+ax2.plot(df_final.index, df_final['population'], color=color_pop, marker='o', linewidth=3, label='Population (moyenne)')
+ax2.set_ylabel('Population totale', color=color_pop)
+ax2.tick_params(axis='y', labelcolor=color_pop)
+
+plt.title("Évolution 10-ennale : Démographie vs Gravité des Attaques")
+fig.tight_layout()
+plt.show()
+```
+
+\begin{keyfinding}{Key Finding}
+\textbf{La corrélation décennale est manifeste} : l'accélération démographique s'accompagne d'un accroissement du volume d'incidents. On note également une augmentation du nombre de cas fatals sur la dernière décennie (2017-2026), période de plus forte densité humaine.
+\end{keyfinding}
+
+## Répartition par Localité
 
 ```{python}
 import plotly.express as px
-import plotly.io as pio
 df_geo = df.groupby(['province', 'commune_nom']).size().reset_index(name='count')
 fig = px.sunburst(df_geo, path=['province', 'commune_nom'], values='count',
                   color='province', color_discrete_sequence=px.colors.qualitative.Pastel)
-fig.update_layout(title_text="Répartition hiérarchique Province > Commune", title_x=0.5)
+fig.update_layout(title_text="Hiérarchie des attaques : Province > Commune", title_x=0.5)
 pio.show(fig, renderer="png")
 ```
 
 # \faUser\ Profil des Incidents
 
-## Top 10 des Activités (Donut Chart)
+## Top 10 des Activités
 
 Certaines activités nautiques sont historiquement plus représentées. Ce graphique présente les 10 activités les plus fréquentes dans la base de données.
 
@@ -341,7 +463,6 @@ Pour mieux comprendre les risques, nous avons regroupé les activités par grand
 
 ```{python}
 import plotly.express as px
-import plotly.io as pio
 
 # Chargement du mapping des activités
 mapping_df = pd.read_csv('activity_mapping.csv')
@@ -353,12 +474,45 @@ df_activity = df_mapped.groupby(['category', 'activity']).size().reset_index(nam
 
 fig = px.sunburst(df_activity, path=['category', 'activity'], values='count',
                   color='category', color_discrete_sequence=px.colors.qualitative.Pastel)
-fig.update_layout(title_text="Répartition hiérarchique des activités", title_x=0.5)
+fig.update_layout(title_text="Répartition hiérarchique des attaques par activité", title_x=0.5)
 pio.show(fig, renderer="png")
 ```
 
 \begin{keyfinding}{Key Finding}
 \textbf{L'immersion permanente (Baignade, Chasse sous-marine)} reste la catégorie la plus représentée. Cependant, le regroupement des \textbf{sports de planche} permet de visualiser leur part significative dans les interactions récentes.
+\end{keyfinding}
+
+## Létalité par Catégorie d'Exposition
+
+En regroupant les activités par famille, on peut comparer la dangerosité relative des différents modes d'interaction avec le milieu marin.
+
+```{python}
+# Utilisation du dataframe mappé (déjà préparé dans la section précédente)
+df_cat_cross = df_mapped.groupby(['category', 'is_fatal']).size().unstack(fill_value=0)
+
+# S'assurer de l'ordre : 'Fatale' puis 'Non fatale'
+for col in ['Fatale', 'Non fatale']:
+    if col not in df_cat_cross.columns:
+        df_cat_cross[col] = 0
+df_cat_cross = df_cat_cross[['Fatale', 'Non fatale']]
+
+# Tri par nombre total
+df_cat_cross['total'] = df_cat_cross.sum(axis=1)
+df_cat_cross = df_cat_cross.sort_values('total', ascending=True).drop(columns='total')
+
+# Affichage avec l'ordre de couleurs harmonisé
+df_cat_cross.plot(kind='barh', stacked=True, color=[COLOR_FATAL, COLOR_NON_FATAL], 
+                  figsize=(10, 5), ax=plt.gca())
+plt.title("Répartition de la gravité par catégorie d'activité")
+plt.xlabel("Nombre d'incidents")
+plt.ylabel("Catégorie")
+plt.legend(title='Gravité')
+plt.grid(axis='x', linestyle='--', alpha=0.7)
+plt.show()
+```
+
+\begin{keyfinding}{Key Finding}
+\textbf{La catégorie "Immersion permanente"} présente non seulement le plus gros volume d'incidents, mais aussi une proportion de cas fatals importante. Les \textbf{sports de planche} montrent une répartition plus équilibrée, reflet d'une exposition différente aux risques.
 \end{keyfinding}
 
 ## Corrélation Activité vs Gravité
@@ -370,24 +524,21 @@ Ce graphique croise l'activité pratiquée avec l'issue de l'incident. Il permet
 top_10_activities = df['activity'].value_counts().head(10).index
 df_top10 = df[df['activity'].isin(top_10_activities)].copy()
 
-# Nettoyage des noms d'activités pour l'affichage
-df_top10['activity_display'] = df_top10['activity'].replace({'': 'INCONNUE'})
-
 # Pivot pour le graphique empilé
-df_cross = df_top10.groupby(['activity_display', 'is_fatal']).size().unstack(fill_value=0)
+df_cross = df_top10.groupby(['activity', 'is_fatal']).size().unstack(fill_value=0)
 
-# S'assurer de l'ordre : 'Non fatale' puis 'Fatale' (pour l'empilement de gauche à droite)
-for col in ['Non fatale', 'Fatale']:
+# S'assurer de l'ordre : 'Fatale' puis 'Non fatale'
+for col in ['Fatale', 'Non fatale']:
     if col not in df_cross.columns:
         df_cross[col] = 0
-df_cross = df_cross[['Non fatale', 'Fatale']]
+df_cross = df_cross[['Fatale', 'Non fatale']]
 
 # Tri par nombre total
 df_cross['total'] = df_cross.sum(axis=1)
 df_cross = df_cross.sort_values('total', ascending=True).drop(columns='total')
 
-# Affichage avec couleurs cohérentes (Bleu puis Rouge)
-df_cross.plot(kind='barh', stacked=True, color=[COLOR_NON_FATAL, COLOR_FATAL], 
+# Affichage avec l'ordre de couleurs harmonisé
+df_cross.plot(kind='barh', stacked=True, color=[COLOR_FATAL, COLOR_NON_FATAL], 
               figsize=(10, 6), ax=plt.gca())
 plt.title("Létalité par activité (Top 10)")
 plt.xlabel("Nombre d'incidents")
@@ -521,9 +672,11 @@ plt.show()
 \textbf{Le cycle lunaire semble influencer la fréquence des interactions,} avec des pics observés durant le \textbf{Premier Croissant} et la \textbf{Pleine Lune}.
 \end{keyfinding}
 
-# \faBook\ Glossaire des Espèces
+# \faLeaf\ UICN et Conservation
 
-Voici les principales espèces impliquées dans les interactions en Nouvelle-Calédonie, selon les données de l'[**UICN (IUCN)**](https://iucn.org/fr) [@iucnglobal] :
+## Glossaire des Espèces
+
+Voici les principales espèces impliquées dans les interactions en Nouvelle-Calédonie, selon les données de l'[**UICN (IUCN)**](https://iucn.org/fr) [@iucnglobal] et de la Liste rouge des espèces menacées en France [@uicnlisterouge] :
 
 | Nom Commun | Nom Scientifique | Statut de Conservation |
 |------------|------------------|------------------------|
@@ -533,7 +686,18 @@ Voici les principales espèces impliquées dans les interactions en Nouvelle-Cal
 | **Requin gris de récif** | *Carcharhinus amblyrhynchos* | Quasi menacé (NT) |
 | **Requin citron** | *Negaprion brevirostris* | Quasi menacé (NT) |
 
-# \faComments\ Entretien : Décrypter pour mieux nager
+## Gestion du risque requins : prévenir plutôt qu’abattre
+
+Le Comité français de l’UICN a publié une position officielle concernant la gestion de ces interactions [@uicnposition] :
+
+\begin{tcolorbox}[colback=blue!5!white, colframe=flatBlue, leftrule=3mm, arc=0mm, title={\faQuoteLeft\ Position officielle de l'UICN France}, fonttitle=\bfseries]
+"Le Comité français de l’UICN publie aujourd’hui une position officielle appelant à la mise en place de politiques de prévention du risque requin (systèmes de signalisation et moyens de surveillance proactifs et non létaux dans les zones touristiques et sportives, réglementations des déchets de pêche, amélioration des systèmes de collecte et de traitement des eaux usées et de ruissellement, adoption d’outils de gestion prévisionnels opposables…) à la place de mesures ayant des impacts sur l’environnement, en particulier l’abattage des grands requins, maillon essentiel des écosystèmes marins aujourd’hui menacés.
+
+\vspace{0.3cm}
+La position du Comité français de l’UICN incite également les collectivités concernées à mettre en place des espaces de concertation et d’animations permettant une meilleure compréhension et acceptation des facteurs de risque par les populations locales, ainsi qu’une coopération internationale en matière de gestion du risque requin."
+\end{tcolorbox}
+
+# \faComments\ Entretien : Décrypter la data pour une Waterman experience plus sécure 
 
 ## Bio Express
 
@@ -556,7 +720,7 @@ Voici les principales espèces impliquées dans les interactions en Nouvelle-Cal
 
 ## L'entretien
 
-*Au cours du week-end pluvieux du 28 février 2026, Adrien Sales a saisi l'opportunité d'un DEV Challenge pour mobiliser l'Open Data et l'IA afin de décrypter l'historique des interactions avec les squales. Voici son regard de citoyen engagé.*
+*Au cours du week-end pluvieux du 28 février 2026, Adrien Sales a saisi l'opportunité d'un **DEV Challenge** (un hackathon intensif [@geminichallenge]) pour mobiliser l'Open Data et l'IA afin de décrypter l'historique des interactions avec les squales. Voici son regard de citoyen engagé.*
 
 ### Passion Lagon
 
