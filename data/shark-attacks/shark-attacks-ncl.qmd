@@ -21,7 +21,7 @@ abstract: |
   
   *Sa rédaction a été motivée par l'attaque fatale survenue le 22 février 2026 contre un pratiquant de wingfoil (NC La 1ère [@newswingfoil2026]), rappelant l'urgence de comprendre ces dynamiques [@newsattack2026].*
   
-  *L'étude explore également l'influence de la qualité des eaux de baignade [@kagglewaterquality] et propose plusieurs analyses détaillées via des notebooks techniques [@kagglekpi; @kaggledummies; @kagglessff11] et un article dédié [@devtoarticle].*
+  *L'étude explore également l'influence de la qualité des eaux de baignade [@kagglewaterquality] et propose plusieurs analyses détaillées via des notebooks techniques [@kagglekpi; @kaggledummies; @kagglessff11], des articles dédiés [@devtoarticle; @devtogeminicli] ainsi qu'une [présentation vidéo](https://youtu.be/M3iiRXKgz60) [@videodemo].*
   
   *Ces analyses sont produites exclusivement à l'aide de logiciels Open Source et de données ouvertes (Open Data).*
 bibliography: references.bib
@@ -199,7 +199,7 @@ plt.rcParams['figure.facecolor'] = 'white'
 
 # \faInfoCircle\ Introduction
 
-\lettrine[lines=3, lhang=0.1, nindent=0em]{\color{flatBlue}C}{e} rapport présente une analyse statistique détaillée des attaques de requin recensées en Nouvelle-Calédonie. Les données proviennent d'une base de données locale intégrant des informations temporelles, géographiques, biologiques et environnementales.
+\lettrine[lines=3, lhang=0.1, nindent=0em]{\color{flatBlue}C}{e} rapport présente une analyse statistique détaillée des attaques de requin recensées en Nouvelle-Calédonie. Les données proviennent d'une base de données locale intégrant des informations temporelles, géographiques, biologiques et environnementales. Une [**présentation vidéo**](https://youtu.be/M3iiRXKgz60) [@videodemo] de ce travail est également disponible.
 
 # \faUserTie\ À propos de l'auteur
 
@@ -296,7 +296,7 @@ plt.show()
 ```
 
 \begin{keyfinding}{Key Finding}
-\textbf{La Province Sud regroupe plus des deux tiers des incidents recensés,} ce qui s'explique en partie par la concentration démographique et des activités nautiques autour de l'agglomération nouméenne.
+\textbf{La Province Sud concentre près de 60 \% des incidents recensés.} Cette prédominance s'explique par la forte densité démographique et la concentration des activités nautiques autour du Grand Nouméa. Les Provinces Nord et des Îles suivent avec respectivement environ 21 \% et 13 \% des cas.
 \end{keyfinding}
 
 ## Hiérarchie Province-Commune (Sunburst)
@@ -313,26 +313,93 @@ pio.show(fig, renderer="png")
 
 # \faUser\ Profil des Incidents
 
-## Activités au moment de l'attaque
+## Top 10 des Activités (Donut Chart)
 
-Certaines activités nautiques semblent plus exposées que d'autres.
+Certaines activités nautiques sont historiquement plus représentées. Ce graphique présente les 10 activités les plus fréquentes dans la base de données.
 
 ```{python}
-plt.figure(figsize=(12, 6))
+plt.figure(figsize=(10, 8))
 activity_counts = df['activity'].value_counts().head(10)
-# Nettoyage des index vides
 labels = [act if act != '' else 'Inconnue' for act in activity_counts.index]
 
-sns.barplot(x=activity_counts.values, y=labels, palette='viridis')
+plt.pie(activity_counts, labels=labels, autopct='%1.1f%%', startangle=140, 
+        colors=sns.color_palette('viridis', len(labels)), pctdistance=0.85)
+centre_circle = plt.Circle((0,0), 0.70, fc='white')
+fig = plt.gcf()
+fig.gca().add_artist(centre_circle)
 plt.title("Top 10 des activités lors des attaques")
-plt.xlabel("Nombre d'incidents")
-plt.ylabel("Activité")
 plt.show()
 ```
 
 \begin{keyfinding}{Key Finding}
-\textbf{La chasse sous-marine (Spearfishing) et la baignade} sont les activités les plus représentées dans l'historique des incidents. Cela souligne l'importance de la sensibilisation sur ces pratiques, particulièrement lorsqu'elles sont exercées dans des zones ou à des horaires identifiés comme plus sensibles.
+\textbf{La chasse sous-marine (Spearfishing) et la baignade} dominent largement le classement historique, représentant plus de 50\% des incidents du Top 10.
 \end{keyfinding}
+
+## Analyse Catégorielle (Sunburst)
+
+Pour mieux comprendre les risques, nous avons regroupé les activités par grandes catégories : les activités impliquant une **immersion permanente** (chasse, baignade, plongée) et les **sports de planche**.
+
+```{python}
+import plotly.express as px
+import plotly.io as pio
+
+# Chargement du mapping des activités
+mapping_df = pd.read_csv('activity_mapping.csv')
+df_mapped = df.merge(mapping_df, on='activity', how='left')
+df_mapped['category'] = df_mapped['category'].fillna('Inconnue')
+
+# Préparation des données pour le sunburst
+df_activity = df_mapped.groupby(['category', 'activity']).size().reset_index(name='count')
+
+fig = px.sunburst(df_activity, path=['category', 'activity'], values='count',
+                  color='category', color_discrete_sequence=px.colors.qualitative.Pastel)
+fig.update_layout(title_text="Répartition hiérarchique des activités", title_x=0.5)
+pio.show(fig, renderer="png")
+```
+
+\begin{keyfinding}{Key Finding}
+\textbf{L'immersion permanente (Baignade, Chasse sous-marine)} reste la catégorie la plus représentée. Cependant, le regroupement des \textbf{sports de planche} permet de visualiser leur part significative dans les interactions récentes.
+\end{keyfinding}
+
+## Corrélation Activité vs Gravité
+
+Ce graphique croise l'activité pratiquée avec l'issue de l'incident. Il permet d'identifier la dangerosité relative de chaque pratique.
+
+```{python}
+# Préparation des données : Top 10 activités vs Gravité
+top_10_activities = df['activity'].value_counts().head(10).index
+df_top10 = df[df['activity'].isin(top_10_activities)].copy()
+
+# Nettoyage des noms d'activités pour l'affichage
+df_top10['activity_display'] = df_top10['activity'].replace({'': 'INCONNUE'})
+
+# Pivot pour le graphique empilé
+df_cross = df_top10.groupby(['activity_display', 'is_fatal']).size().unstack(fill_value=0)
+
+# S'assurer de l'ordre : 'Non fatale' puis 'Fatale' (pour l'empilement de gauche à droite)
+for col in ['Non fatale', 'Fatale']:
+    if col not in df_cross.columns:
+        df_cross[col] = 0
+df_cross = df_cross[['Non fatale', 'Fatale']]
+
+# Tri par nombre total
+df_cross['total'] = df_cross.sum(axis=1)
+df_cross = df_cross.sort_values('total', ascending=True).drop(columns='total')
+
+# Affichage avec couleurs cohérentes (Bleu puis Rouge)
+df_cross.plot(kind='barh', stacked=True, color=[COLOR_NON_FATAL, COLOR_FATAL], 
+              figsize=(10, 6), ax=plt.gca())
+plt.title("Létalité par activité (Top 10)")
+plt.xlabel("Nombre d'incidents")
+plt.ylabel("Activité")
+plt.legend(title='Gravité')
+plt.grid(axis='x', linestyle='--', alpha=0.7)
+plt.show()
+```
+
+\begin{keyfindingimportant}{Key Finding}
+\textbf{La Baignade (Swimming) et la Chasse sous-marine (Spearfishing)} totalisent le plus grand nombre de cas fatals (6 chacune). On note cependant que la \textbf{Baignade} présente un taux de létalité supérieur à 50\% sur l'échantillon, contre environ 26\% pour la chasse.
+\end{keyfindingimportant}
 
 ## Espèces impliquées
 
