@@ -21,7 +21,7 @@ abstract: |
   
   *Sa rédaction a été motivée par l'attaque fatale survenue le 22 février 2026 contre un pratiquant de wingfoil (NC La 1ère [@newswingfoil2026]), rappelant l'urgence de comprendre ces dynamiques [@newsattack2026].*
   
-  *L'étude explore également l'influence de la qualité des eaux de baignade [@kagglewaterquality] et propose plusieurs analyses détaillées via des notebooks techniques [@kagglekpi; @kaggledummies; @kagglessff11], des articles dédiés [@devtoarticle; @devtogeminicli] ainsi qu'une [présentation vidéo](https://youtu.be/M3iiRXKgz60) [@videodemo].*
+  *L'étude explore également l'influence de la qualité des eaux de baignade [@kagglewaterquality], notamment via l'utilisation d'outils de collecte structurés [@edbnoumea], de flux de données mis à jour en continu [@edbnoumeadata] et d'interfaces de consultation modernes [@edbnoumeatui], et propose plusieurs analyses détaillées via des notebooks techniques [@kagglekpi; @kaggledummies; @kagglessff11], des articles dédiés [@devtoarticle; @devtogeminicli] ainsi qu'une [présentation vidéo](https://youtu.be/M3iiRXKgz60) [@videodemo].*
   
   *Ces analyses sont produites exclusivement à l'aide de logiciels Open Source et de données ouvertes (Open Data).*
 bibliography: references.bib
@@ -32,11 +32,18 @@ keywords: [Requin, Nouvelle-Calédonie, Analyse de données, Open Data, Gemini, 
 subject: "Analyse statistique des attaques de requins en Nouvelle-Calédonie et facteurs environnementaux."
 format:
   pdf:
-    toc: true
-    number-sections: true
+    pdf-engine: xelatex
     output-file: "shark-attacks-ncl.pdf"
     papersize: a4
-    pdf-engine: xelatex
+    toc: true
+    number-sections: true
+    pdf-meta:
+      author: "Adrien SALES"
+      title: "Analyse des Attaques de Requin en Nouvelle-Calédonie"
+      subject: "Analyse statistique et facteurs environnementaux"
+      keywords: ["Requin", "Nouvelle-Calédonie", "Open Data", "Gemini"]
+      creator: "Adrien SALES (via Quarto & LaTeX)"
+      producer: "Adrien SALES"
     include-in-header:
       text: |
         \KOMAoption{captions}{tableheading}
@@ -204,6 +211,10 @@ plt.rcParams['figure.facecolor'] = 'white'
 
 \lettrine[lines=3, lhang=0.1, nindent=0em]{\color{flatBlue}C}{e} rapport présente une analyse statistique détaillée des attaques de requin recensées en Nouvelle-Calédonie. Les données proviennent d'une base de données locale intégrant des informations temporelles, géographiques, biologiques et environnementales. Une [**présentation vidéo**](https://youtu.be/M3iiRXKgz60) [@videodemo] de ce travail est également disponible.
 
+À l'ère de la **post-vérité** [@postverite], où l'émotion et l'opinion l'emportent parfois sur les faits, l'accès à une donnée brute, transparente et scientifiquement analysée est un pilier fondamental de la **démocratie**. Ce travail s'inscrit dans une démarche de lutte contre la désinformation (*infox*) en proposant un éclairage factuel sur un sujet souvent sujet aux fantasmes et aux peurs irrationnelles. 
+
+La première ambition de cette étude est d'encourager la publication de nouveaux jeux de données ouvertes par les autorités compétentes, afin de permettre l'émergence d'une innovation citoyenne et de garantir la tenue de débats publics de qualité, basés sur des preuves tangibles. L'**Open Data** n'est pas seulement un outil technique ; c'est un instrument de salubrité publique et de citoyenneté éclairée [@opendatademocratie].
+
 # \faUserTie\ À propos de l'auteur
 
 Adrien SALES est engagé depuis de nombreuses années dans l'animation, la promotion et la pratique de l'**Open Data** et de l'**Open Source**. À travers ses travaux, il œuvre pour faire vivre l'utopie d'une *smart city* qui ouvre ses données de manière optimale à ses citoyens, favorisant une vie plus connectée, plus intelligente et plus tournée vers la **démocratie participative**.
@@ -229,7 +240,9 @@ Cet isolement géographique et la richesse de sa biodiversité marine en font un
 
 # \faUsers\ Contexte Démographique
 
-La répartition humaine sur l'archipel, basée sur les données de population légale de **2019** [@gouvncpopulation] issues du portail **data.gouv.nc**, est un facteur clé pour comprendre la localisation des incidents nautiques.
+La répartition humaine sur l'archipel, basée sur les données de population légale de **2019** [@gouvncpopulation] issues du portail **data.gouv.nc**, est un facteur clé pour comprendre la localisation des incidents nautiques. 
+
+L'analyse suivante se concentre sur la **Population municipale**, qui représente les résidents permanents de chaque commune (logements familiaux, foyers). Ce choix méthodologique permet de refléter l'occupation humaine habituelle du territoire, en excluant la **Population comptée à part** (étudiants en internat, militaires en caserne ou patients en centres de soin) qui relève de dynamiques de mobilité différentes.
 
 ```{python}
 import io
@@ -247,11 +260,11 @@ df_demo = pd.read_csv(io.StringIO(response.text), sep=';')
 df_demo = df_demo[df_demo['column_6'] == df_demo['column_6'].max()]
 
 # Analyse par Province
-df_prov = df_demo.groupby('province_maj')['column_5'].sum().reset_index()
+df_prov = df_demo.groupby('province_maj')['column_2'].sum().reset_index()
 
 plt.figure(figsize=(12, 6))
 plt.subplot(1, 2, 1)
-plt.pie(df_prov['column_5'], labels=df_prov['province_maj'], autopct='%1.1f%%', 
+plt.pie(df_prov['column_2'], labels=df_prov['province_maj'], autopct='%1.1f%%', 
         startangle=140, colors=sns.color_palette('pastel'), pctdistance=0.85)
 centre_circle = plt.Circle((0,0), 0.70, fc='white')
 fig = plt.gcf()
@@ -260,8 +273,8 @@ plt.title("Répartition de la Population par Province")
 
 # Top 5 Communes
 plt.subplot(1, 2, 2)
-df_top_communes = df_demo.sort_values('column_5', ascending=False).head(5)
-sns.barplot(data=df_top_communes, x='column_5', y='commune', palette='viridis')
+df_top_communes = df_demo.sort_values('column_2', ascending=False).head(5)
+sns.barplot(data=df_top_communes, x='column_2', y='commune', palette='viridis')
 plt.title("Top 5 des communes les plus peuplées")
 plt.xlabel("Nombre d'habitants")
 
@@ -270,7 +283,7 @@ plt.show()
 ```
 
 \begin{keyfinding}{Key Finding}
-\textbf{Près de 65 \% de la population réside en Province Sud,} avec une concentration extrême sur l'agglomération nouméenne (Nouméa, Dumbéa, Mont-Dore, Païta). Le Top 5 inclut également Lifou, illustrant le poids démographique des îles. Cette densité corrèle fortement avec la répartition géographique des incidents observée plus loin.
+\textbf{Près de 75 \% de la population réside en Province Sud,} avec une concentration extrême sur l'agglomération nouméenne (Nouméa, Dumbéa, Mont-Dore, Païta). Cette densité démographique corrèle fortement avec la répartition géographique des incidents observée plus loin.
 \end{keyfinding}
 
 # \faHistory\ Analyse Temporelle
@@ -372,12 +385,15 @@ def get_10y_bin(y):
 # 2. Agrégation de la population
 response = requests.get(url_demo)
 df_all_pop = pd.read_csv(io.StringIO(response.text), sep=';')
-pop_census = df_all_pop.groupby('column_6')['column_5'].sum().reset_index()
+pop_census = df_all_pop.groupby('column_6')['column_2'].sum().reset_index()
 pop_census.columns = ['year', 'population']
 
 years_full = pd.DataFrame({'year': range(1987, 2027)})
 df_pop_full = pd.merge(years_full, pop_census, on='year', how='left')
-df_pop_full['population'] = df_pop_full['population'].interpolate(method='linear', limit_direction='both')
+
+# Interpolation linéaire entre recensements, puis maintien de la valeur 2019 (ffill)
+df_pop_full['population'] = df_pop_full['population'].interpolate(method='linear')
+df_pop_full['population'] = df_pop_full['population'].ffill().bfill()
 
 df_pop_full['bin'] = df_pop_full['year'].apply(get_10y_bin)
 pop_trends = df_pop_full.groupby('bin')['population'].mean().reset_index()
