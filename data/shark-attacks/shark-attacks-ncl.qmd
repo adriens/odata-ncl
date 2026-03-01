@@ -242,7 +242,7 @@ Cet isolement géographique et la richesse de sa biodiversité marine en font un
 
 La répartition humaine sur l'archipel, basée sur les données de population légale de **2019** [@gouvncpopulation] issues du portail **data.gouv.nc**, est un facteur clé pour comprendre la localisation des incidents nautiques. 
 
-L'analyse suivante se concentre sur la **Population municipale**, qui représente les résidents permanents de chaque commune (logements familiaux, foyers). Ce choix méthodologique permet de refléter l'occupation humaine habituelle du territoire, en excluant la **Population comptée à part** (étudiants en internat, militaires en caserne ou patients en centres de soin) qui relève de dynamiques de mobilité différentes.
+L'analyse suivante se concentre sur la **Population municipale**, qui représente les résidents permanents de chaque commune (logements familiaux, foyers). Ce choix méthodologique permet de refléter l'occupation humaine habituelle du territoire en excluant la **Population comptée à part**.
 
 ```{python}
 import io
@@ -371,7 +371,7 @@ plt.show()
 
 ## Corrélation Démographie vs Attaques
 
-Cette analyse compare l'évolution de la **population globale de la Nouvelle-Calédonie** (données **data.gouv.nc** [@gouvncpopulation]) et le nombre d'attaques (par gravité), agrégés par **tranches de 10 ans** décomptées à partir de 2026.
+Cette analyse compare l'évolution de la **population globale de la Nouvelle-Calédonie** (données **data.gouv.nc** [@gouvncpopulation]) et le nombre d'attaques, agrégés par **tranches de 10 ans** décomptées à partir de 2026.
 
 ```{python}
 # 1. Préparation des tranches de 10 ans
@@ -390,10 +390,7 @@ pop_census.columns = ['year', 'population']
 
 years_full = pd.DataFrame({'year': range(1987, 2027)})
 df_pop_full = pd.merge(years_full, pop_census, on='year', how='left')
-
-# Interpolation linéaire entre recensements, puis maintien de la valeur 2019 (ffill)
-df_pop_full['population'] = df_pop_full['population'].interpolate(method='linear')
-df_pop_full['population'] = df_pop_full['population'].ffill().bfill()
+df_pop_full['population'] = df_pop_full['population'].interpolate(method='linear').ffill().bfill()
 
 df_pop_full['bin'] = df_pop_full['year'].apply(get_10y_bin)
 pop_trends = df_pop_full.groupby('bin')['population'].mean().reset_index()
@@ -402,41 +399,74 @@ pop_trends = df_pop_full.groupby('bin')['population'].mean().reset_index()
 df['bin'] = df['year'].apply(get_10y_bin)
 attacks_trends = df[df['year'] >= 1987].groupby(['bin', 'is_fatal']).size().unstack(fill_value=0)
 
-# S'assurer de l'ordre : 'Fatale' puis 'Non fatale'
 for col in ['Fatale', 'Non fatale']:
     if col not in attacks_trends.columns:
         attacks_trends[col] = 0
 attacks_trends = attacks_trends[['Fatale', 'Non fatale']]
 
-# 4. Fusion pour le graphique
+# 4. Fusion et calcul des taux normalisés
 df_final = pd.merge(pop_trends, attacks_trends, on='bin', how='left').fillna(0)
+df_final['total_attacks'] = df_final['Fatale'] + df_final['Non fatale']
+df_final['incidence_rate'] = (df_final['total_attacks'] / df_final['population']) * 100000
+df_final['lethality_rate'] = (df_final['Fatale'] / df_final['total_attacks']) * 100
+
 df_final = df_final.sort_values('bin')
 
-# 5. Graphique à double axe
+# 5. Graphique 1 : Volume et Taux d'Incidence
 fig, ax1 = plt.subplots(figsize=(12, 6))
 
-# Axe 1 : Attaques (Barres empilées)
+# Barres : Volume brut
 df_final.plot(kind='bar', x='bin', y=['Fatale', 'Non fatale'], stacked=True, 
-              color=[COLOR_FATAL, COLOR_NON_FATAL], alpha=0.6, ax=ax1, label=['Fatale', 'Non fatale'])
+              color=[COLOR_FATAL, COLOR_NON_FATAL], alpha=0.6, ax=ax1)
 ax1.set_xlabel('Période (10 ans)')
-ax1.set_ylabel('Nombre d\'attaques', color='#34495e')
-ax1.tick_params(axis='y', labelcolor='#34495e')
+ax1.set_ylabel('Nombre d\'attaques (Volume brut)', color='#34495e')
 
-# Axe 2 : Population (Ligne)
+# Ligne : Taux d'incidence pour 100k hab
 ax2 = ax1.twinx()
-color_pop = '#e67e22'
-ax2.plot(df_final.index, df_final['population'], color=color_pop, marker='o', linewidth=3, label='Population (moyenne)')
-ax2.set_ylabel('Population totale', color=color_pop)
-ax2.tick_params(axis='y', labelcolor=color_pop)
+ax2.plot(df_final.index, df_final['incidence_rate'], color='#2c3e50', marker='s', linewidth=2, label='Taux pour 100k hab.')
+ax2.set_ylabel('Attaques pour 100 000 habitants', color='#2c3e50')
 
-plt.title("Évolution 10-ennale : Démographie vs Gravité des Attaques")
+plt.title("Risque Relatif : Volume vs Taux d'Incidence pour 100 000 hab.")
 fig.tight_layout()
 plt.show()
 ```
 
 \begin{keyfinding}{Key Finding}
-\textbf{La corrélation décennale est manifeste} : l'accélération démographique s'accompagne d'un accroissement du volume d'incidents. On note également une augmentation du nombre de cas fatals sur la dernière décennie (2017-2026), période de plus forte densité humaine.
+\textbf{Le risque individuel augmente proportionnellement à la population.} Bien que le volume brut d'attaques explose, le taux pour 100 000 habitants montre que la probabilité d'interaction pour un citoyen donné suit une courbe ascendante similaire, confirmant une pression accrue sur le milieu marin.
 \end{keyfinding}
+
+## Évolution de la Létalité Relative
+
+Il est crucial de distinguer le volume des décès de la dangerosité réelle des interactions. Ce graphique montre la part (%) des attaques fatales par décennie.
+
+```{python}
+plt.figure(figsize=(10, 5))
+sns.lineplot(data=df_final, x='bin', y='lethality_rate', marker='o', color=COLOR_FATAL, linewidth=3)
+plt.axhline(df_final['lethality_rate'].mean(), linestyle='--', color='gray', alpha=0.5, label='Moyenne historique')
+plt.title("Évolution du Taux de Létalité (%)")
+plt.ylabel("% de cas fatals")
+plt.xlabel("Période")
+plt.ylim(0, 100)
+plt.grid(True, linestyle=':', alpha=0.6)
+plt.show()
+```
+
+\begin{keyfinding}{Key Finding}
+\textbf{Le taux de létalité est en baisse relative.} Si le nombre de décès augmente dans l'absolu, la proportion de survie s'améliore (passant de pics historiques de 60 \% à environ 45 \% sur la dernière décennie). Cette tendance peut refléter une meilleure rapidité des secours et une sensibilisation accrue aux premiers gestes d'urgence.
+\end{keyfinding}
+
+# \faBalanceScale\ Limites Méthodologiques et Nuances
+
+Cette analyse, bien que basée sur des données officielles, doit être interprétée avec précaution au regard de plusieurs biais classiques en science des données.
+
+## Biais de Signalement et Ère Numérique
+L'augmentation spectaculaire observée depuis les années 2010 coïncide avec la généralisation des smartphones et des réseaux sociaux. Un incident survenu en 1985 dans une zone isolée avait une probabilité non négligeable de ne jamais être consigné dans les bases de données internationales, contrairement à aujourd'hui où l'information est quasi instantanée et exhaustive.
+
+## Population vs Exposition Réelle
+La population totale est une variable "proxy". Le véritable moteur des interactions n'est pas le nombre d'habitants, mais le **volume d'activités nautiques**. L'essor massif de nouvelles disciplines (Kitesurf, Wingfoil, Stand-up Paddle) multiplie le temps passé dans l'eau et les zones occupées, augmentant mécaniquement les probabilités de rencontre, indépendamment de la seule croissance démographique.
+
+## Facteurs Environnementaux
+Enfin, cette étude se concentre sur les variables humaines. Des facteurs écologiques complexes (température de l'océan, cycles El Niño/La Niña, raréfaction des proies naturelles, efforts de conservation des espèces) jouent un rôle déterminant que seule une étude biologique pluridisciplinaire pourrait modéliser.
 
 ## Répartition par Localité
 
@@ -473,7 +503,7 @@ plt.show()
 \textbf{La chasse sous-marine (Spearfishing) et la baignade} dominent largement le classement historique, représentant plus de 50\% des incidents du Top 10.
 \end{keyfinding}
 
-## Analyse Catégorielle (Sunburst)
+## Analyse Catégorielle
 
 Pour mieux comprendre les risques, nous avons regroupé les activités par grandes catégories : les activités impliquant une **immersion permanente** (chasse, baignade, plongée) et les **sports de planche**.
 
@@ -982,6 +1012,28 @@ La réalisation de cette étude repose sur un écosystème d'outils **Open Sourc
 - \faDatabase\ **Base de données** : [SQLite](https://www.sqlite.org/), pour le stockage structuré des incidents.
 - \faTools\ **Librairies de données** : [Pandas](https://pandas.pydata.org/) (traitement), [Seaborn](https://seaborn.pydata.org/) & [Matplotlib](https://matplotlib.org/) (visualisation statique), [Plotly](https://plotly.com/) (visualisation hiérarchique).
 - \faFilePdf\ **Moteur de rendu PDF** : [XeLaTeX](https://www.tug.org/xetex/), pour une mise en page typographique soignée.
+
+# \faHandshake\ Remerciements
+
+Ce travail de citoyenneté numérique a bénéficié de l'expertise et du regard critique de membres engagés de la communauté calédonienne. Leurs apports ont permis d'élever la rigueur analytique de ce rapport.
+
+## Cédric Caruzzo
+Un grand merci à [Cédric Caruzzo](https://www.linkedin.com/in/cedric-caruzzo/), AI Research Scientist @ [**Lunit Cancer Screening**](https://www.linkedin.com/company/lunit/) (AI Foundation Team) et chercheur au [KAIST](https://www.kaist.ac.kr/en/) (Korea Advanced Institute of Science and Technology), pour ses précieux retours sur les premières versions de ce travail. 
+
+Expert en recherche IA/ML appliquée à la santé, ses conseils avisés sur l'ergonomie visuelle et la lecture des données ont été déterminants. Ses feedbacks ont notamment permis d'éliminer plusieurs biais dans les premières ébauches de dataviz et d'optimiser les choix de visualisation afin de garantir une restitution de l'information à la fois neutre, accessible et scientifiquement rigoureuse. 
+
+Ce n'est pas la première fois que Cédric, bien que vivant et travaillant en Corée du Sud, s'investit pour faire progresser la Nouvelle-Calédonie. Il avait déjà apporté son expertise à mes étudiants de **MIAGE 2025** de l'[**IAE Nouvelle-Calédonie**](https://www.linkedin.com/school/iae-nc) lors de mon cours sur l'**interopérabilité des systèmes d'information**, à l'occasion de leurs travaux sur la prédiction des prix et de la qualité de la nourriture sur le territoire [@devtoarticleteacher].
+
+## Sébastien Regnoult
+Toute ma gratitude à [Sébastien Regnoult](https://www.linkedin.com/in/sebastien-regnoult/), Application developer à l'[**ISEE NC**](https://www.linkedin.com/company/isee-nc/posts/?feedView=all) (Institut de la statistique et des études économiques - Nouvelle-Calédonie), pour ses critiques constructives et sa relecture scientifique exigeante. 
+
+Son expertise métier a été déterminante pour la fiabilité de ce rapport : il a notamment identifié l'usage erroné de la population totale (incluant les doubles comptes) au profit de la **Population municipale** (résidence habituelle). Ce retour a permis de corriger une surestimation majeure de la population (passant de 326 000 à 271 000 habitants pour 2019) et d'ajuster les analyses de corrélation et de létalité relative avec une précision rigoureuse. Ses feedbacks sur les biais de signalement et la nécessité de normaliser les taux d'incidence par habitant ont également été essentiels.
+
+## Andy Malo
+Un grand merci à [Andy Malo](https://www.linkedin.com/in/pisope/) pour son soutien et ses encouragements constants tout au long de la réalisation de ce projet. Participant passionné de nombreux hackathons et militant actif pour l'**Open Data** en Nouvelle-Calédonie, il est pour moi une source d'inspiration et de motivation pour continuer à apprendre en permanence.
+
+## Ma famille
+Enfin, une pensée toute particulière pour ma famille. Merci pour votre patience, votre soutien et vos encouragements durant ce week-end intensif de hackathon.
 
 # \faQuoteRight\ Références
 
